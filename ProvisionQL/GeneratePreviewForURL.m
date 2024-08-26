@@ -241,11 +241,7 @@ NSString *escapedXML(NSString *stringToEscape) {
     return stringToEscape;
 }
 
-NSData *codesignEntitlementsDataFromApp(NSData *infoPlistData, NSString *basePath) {
-    // read the CFBundleExecutable and extract it
-    NSDictionary *appPropertyList = [NSPropertyListSerialization propertyListWithData:infoPlistData options:0 format:NULL error:NULL];
-    NSString *bundleExecutable = [appPropertyList objectForKey:@"CFBundleExecutable"];
-
+NSData *codesignEntitlementsDataFromApp(NSString *basePath, NSString *bundleExecutable) {
     NSString *binaryPath = [basePath stringByAppendingPathComponent:bundleExecutable];
     // get entitlements: codesign -d <AppBinary> --entitlements - --xml
     NSTask *codesignTask = [NSTask new];
@@ -284,12 +280,9 @@ NSString *iconAsBase64(NSImage *appIcon) {
 
 OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview, CFURLRef url, CFStringRef contentTypeUTI, CFDictionaryRef options) {
     @autoreleasepool {
-        // create temp directory
+        NSLog(@"[ProvisionQL] GeneratePreviewForURL: %@", url);
         NSFileManager *fileManager = [NSFileManager defaultManager];
-        NSString *tempDirFolder = [NSTemporaryDirectory() stringByAppendingPathComponent:kPluginBundleId];
-        NSString *currentTempDirFolder = [tempDirFolder stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
-        [fileManager createDirectoryAtPath:currentTempDirFolder withIntermediateDirectories:YES attributes:nil error:nil];
-
+        NSURL *appURL = nil;
         NSURL *URL = (__bridge NSURL *)url;
         NSString *dataType = (__bridge NSString *)contentTypeUTI;
         NSData *provisionData = nil;
@@ -298,6 +291,11 @@ OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview,
         NSImage *appIcon = nil;
 
         if ([dataType isEqualToString:kDataType_ipa]) {
+            // create temp directory
+            NSString *tempDirFolder = [NSTemporaryDirectory() stringByAppendingPathComponent:kPluginBundleId];
+            NSString *currentTempDirFolder = [tempDirFolder stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
+            [fileManager createDirectoryAtPath:currentTempDirFolder withIntermediateDirectories:YES attributes:nil error:nil];
+            
             provisionData = unzipFile(URL, @"Payload/*.app/embedded.mobileprovision");
             appPlist = unzipFile(URL, @"Payload/*.app/Info.plist");
 
@@ -307,33 +305,36 @@ OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview,
 
             unzipFileToDir(URL, currentTempDirFolder, [@"Payload/*.app/" stringByAppendingPathComponent:bundleExecutable]);
 
-            codesignEntitlementsData = codesignEntitlementsDataFromApp(appPlist, currentTempDirFolder);
+            codesignEntitlementsData = codesignEntitlementsDataFromApp( currentTempDirFolder, bundleExecutable);
 
             [fileManager removeItemAtPath:tempDirFolder error:nil];
+        } else if ([dataType isEqualToString:kDataType_app]) {
+            appURL = URL;
         } else if ([dataType isEqualToString:kDataType_xcode_archive]) {
             // get the embedded plist for the iOS app
             NSURL *appsDir = [URL URLByAppendingPathComponent:@"Products/Applications/"];
             if (appsDir != nil) {
                 NSArray *dirFiles = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:appsDir.path error:nil];
                 if (dirFiles.count > 0) {
-                    NSURL *appURL = [appsDir URLByAppendingPathComponent:dirFiles[0] isDirectory:YES];
-
-                    provisionData = [NSData dataWithContentsOfURL:[appURL URLByAppendingPathComponent:@"embedded.mobileprovision"]];
-                    appPlist = [NSData dataWithContentsOfURL:[appURL URLByAppendingPathComponent:@"Info.plist"]];
-
-                    // read codesigning entitlements from application binary
-                    codesignEntitlementsData = codesignEntitlementsDataFromApp(appPlist, appURL.path);
+                    appURL = [appsDir URLByAppendingPathComponent:dirFiles[0] isDirectory:YES];
                 }
             }
         } else if ([dataType isEqualToString:kDataType_app_extension]) {
-            // get embedded plist and provisioning
-            provisionData = [NSData dataWithContentsOfURL:[URL URLByAppendingPathComponent:@"embedded.mobileprovision"]];
-            appPlist = [NSData dataWithContentsOfURL:[URL URLByAppendingPathComponent:@"Info.plist"]];
-            // read codesigning entitlements from application binary
-            codesignEntitlementsData = codesignEntitlementsDataFromApp(appPlist, URL.path);
+            appURL = URL;
         } else {
             // use provisioning directly
             provisionData = [NSData dataWithContentsOfURL:URL];
+        }
+        
+        if (appURL) {
+            provisionData = [NSData dataWithContentsOfURL:[appURL URLByAppendingPathComponent:@"embedded.mobileprovision"]];
+            appPlist = [NSData dataWithContentsOfURL:[appURL URLByAppendingPathComponent:@"Info.plist"]];
+            
+            NSDictionary *appPropertyList = [NSPropertyListSerialization propertyListWithData:appPlist options:0 format:NULL error:NULL];
+            NSString *bundleExecutable = [appPropertyList objectForKey:@"CFBundleExecutable"];
+
+            // read codesigning entitlements from application binary
+            codesignEntitlementsData = codesignEntitlementsDataFromApp(appURL.path, bundleExecutable);
         }
 
         NSMutableDictionary *synthesizedInfo = [NSMutableDictionary dictionary];
@@ -347,6 +348,8 @@ OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview,
         NSString *synthesizedValue = nil;
 
         if ([dataType isEqualToString:kDataType_ipa]) {
+            [synthesizedInfo setObject:@"ipa info" forKey:@"AppInfoTitle"];
+        } else if ([dataType isEqualToString:kDataType_app]) {
             [synthesizedInfo setObject:@"App info" forKey:@"AppInfoTitle"];
         } else if ([dataType isEqualToString:kDataType_app_extension]) {
             [synthesizedInfo setObject:@"App extension info" forKey:@"AppInfoTitle"];
@@ -391,7 +394,15 @@ OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview,
             } else {
                 [synthesizedInfo setObject:@"hiddenDiv" forKey:@"ExtensionInfo"];
             }
+            
+            NSString *exeName = [appPropertyList objectForKey:@"CFBundleExecutable"];
+            [synthesizedInfo setObject:exeName ?: @"" forKey:@"CFBundleExecutable"];
 
+            NSString *DTXcode = [appPropertyList objectForKey:@"DTXcode"];
+            if (DTXcode) {
+                [synthesizedInfo setObject:DTXcode forKey:@"DTXcode"];
+            }
+            
             NSString *sdkName = [appPropertyList objectForKey:@"DTSDKName"] ?: @"";
             [synthesizedInfo setObject:sdkName forKey:@"DTSDKName"];
 

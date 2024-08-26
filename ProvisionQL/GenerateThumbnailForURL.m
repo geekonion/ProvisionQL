@@ -26,6 +26,7 @@ void CancelThumbnailGeneration(void *thisInterface, QLThumbnailRequestRef thumbn
 
 OSStatus GenerateThumbnailForURL(void *thisInterface, QLThumbnailRequestRef thumbnail, CFURLRef url, CFStringRef contentTypeUTI, CFDictionaryRef options, CGSize maxSize) {
     @autoreleasepool {
+        NSLog(@"[ProvisionQL] GenerateThumbnailForURL: %@", url);
         NSURL *URL = (__bridge NSURL *)url;
         NSString *dataType = (__bridge NSString *)contentTypeUTI;
         NSData *appPlist = nil;
