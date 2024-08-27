@@ -16,6 +16,7 @@ Thumbnails will show app icon for `.ipa`/ `.xcarchive` or expiring status and de
 Supported file types:
 
 * `.ipa` - iOS packaged application
+* `.app` - iOS application bundle
 * `.xcarchive` - Xcode archive
 * `.appex` - iOS/OSX application extension
 * `.mobileprovision` - iOS provisioning profile
@@ -49,6 +50,50 @@ brew install --cask provisionql
 * download archive with latest version from the [Releases](https://github.com/ealeksandrov/ProvisionQL/releases/latest) page;
 * move `ProvisionQL.qlgenerator` to `~/Library/QuickLook/`(current user) or `/Library/QuickLook/`(all users);
 * run `qlmanage -r` to refresh Quick Look plugins list.
+
+### 其他
+
+ProvisionQL没有系统扩展的优先级高，可能不生效。
+
+ProvisionQL生成的信息末尾有类似以下信息：
+
+```
+ProvisionQL v1.6.4 (99) (debug) (Fork on GitHub)
+```
+
+1. 关闭ProvisioningProfileQuickLookExtension
+
+   在`系统设置`中搜索`扩展`，将`快速查看`中的`ProvisioningProfileQuickLookExtension`复选框去掉勾选
+
+2. 删除DVTProvisioningProfileQuicklookGenerator对mobileprovision的支持
+
+   ```stylus
+   /Applications/Xcode.app/Contents/Library/QuickLook/DVTProvisioningProfileQuicklookGenerator.qlgenerator
+   ```
+
+查看当前解析器
+
+1. 查看文件和解析扩展的对应关系
+
+   ```stylus
+   qlmanage -m
+   server: living for 0s (0 requests handled) - instant off: yes - arch: X86_64 - user id: 501
+   memory used: 0 MB (849856 bytes) - used descriptors: 19/256
+   plugins:
+     ...
+     com.apple.iphone.mobileprovision -> /Users/bangcle/Library/QuickLook/ProvisionQL.qlgenerator (99)
+     com.apple.application-and-system-extension -> /Users/bangcle/Library/QuickLook/ProvisionQL.qlgenerator (99)
+     ...
+     com.apple.itunes.ipa -> /Users/bangcle/Library/QuickLook/ProvisionQL.qlgenerator (99)
+     ...
+     com.apple.mobileprovision -> /Users/bangcle/Library/QuickLook/ProvisionQL.qlgenerator (99)
+     ...
+   ```
+
+
+调试
+
+attach进程ExternalQuickLookSatellite-x86_64
 
 ## Author
 
