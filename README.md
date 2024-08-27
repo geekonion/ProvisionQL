@@ -15,7 +15,7 @@ Thumbnails will show app icon for `.ipa`/ `.xcarchive` or expiring status and de
 
 Supported file types:
 
-* `.ipa` - iOS packaged application
+* `.ipa` or `.tipa` - iOS packaged application
 * `.app` - iOS application bundle
 * `.xcarchive` - Xcode archive
 * `.appex` - iOS/OSX application extension
@@ -90,6 +90,11 @@ ProvisionQL v1.6.4 (99) (debug) (Fork on GitHub)
      ...
    ```
 
+获取文件类型contentTypeUTI
+
+```stylus
+mdls -name kMDItemContentType /path/to/file
+```
 
 调试
 

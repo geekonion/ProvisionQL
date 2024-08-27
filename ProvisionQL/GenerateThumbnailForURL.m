@@ -41,7 +41,10 @@ OSStatus GenerateThumbnailForURL(void *thisInterface, QLThumbnailRequestRef thum
                     appPlist = [NSData dataWithContentsOfURL:[appsDir URLByAppendingPathComponent:[NSString stringWithFormat:@"%@/Info.plist", dirFiles[0]]]];
                 }
             }
-        } else if([dataType isEqualToString:kDataType_ipa]) {
+        } else if([dataType isEqualToString:kDataType_ipa]
+                  // for now, treat .tipa as if it were a normal .ipa file.
+                  || [dataType isEqualToString:kDataType_trollstore_ipa]
+                  || [dataType isEqualToString:kDataType_trollstore_ipa_dyn]) {
             appPlist = unzipFile(URL, @"Payload/*.app/Info.plist");
         }
 
@@ -51,7 +54,11 @@ OSStatus GenerateThumbnailForURL(void *thisInterface, QLThumbnailRequestRef thum
 
         // MARK: .ipa & .xarchive
 
-        if ([dataType isEqualToString:kDataType_ipa] || [dataType isEqualToString:kDataType_xcode_archive]) {
+        if ([dataType isEqualToString:kDataType_ipa]
+            // for now, treat .tipa as if it were a normal .ipa file.
+            || [dataType isEqualToString:kDataType_trollstore_ipa]
+            || [dataType isEqualToString:kDataType_trollstore_ipa_dyn]
+            || [dataType isEqualToString:kDataType_xcode_archive]) {
             NSDictionary *appPropertyList = [NSPropertyListSerialization propertyListWithData:appPlist options:0 format:NULL error:NULL];
             NSString *iconName = mainIconNameForApp(appPropertyList);
             appIcon = imageFromApp(URL, dataType, iconName);

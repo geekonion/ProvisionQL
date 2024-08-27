@@ -290,7 +290,10 @@ OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview,
         NSData *codesignEntitlementsData = nil;
         NSImage *appIcon = nil;
 
-        if ([dataType isEqualToString:kDataType_ipa]) {
+        if ([dataType isEqualToString:kDataType_ipa]
+            // for now, treat .tipa as if it were a normal .ipa file.
+            || [dataType isEqualToString:kDataType_trollstore_ipa]
+            || [dataType isEqualToString:kDataType_trollstore_ipa_dyn]) {
             // create temp directory
             NSString *tempDirFolder = [NSTemporaryDirectory() stringByAppendingPathComponent:kPluginBundleId];
             NSString *currentTempDirFolder = [tempDirFolder stringByAppendingPathComponent:[[NSUUID UUID] UUIDString]];
@@ -347,7 +350,10 @@ OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview,
         id value = nil;
         NSString *synthesizedValue = nil;
 
-        if ([dataType isEqualToString:kDataType_ipa]) {
+        if ([dataType isEqualToString:kDataType_ipa]
+            // for now, treat .tipa as if it were a normal .ipa file.
+            || [dataType isEqualToString:kDataType_trollstore_ipa]
+            || [dataType isEqualToString:kDataType_trollstore_ipa_dyn]) {
             [synthesizedInfo setObject:@"ipa info" forKey:@"AppInfoTitle"];
         } else if ([dataType isEqualToString:kDataType_app]) {
             [synthesizedInfo setObject:@"App info" forKey:@"AppInfoTitle"];
