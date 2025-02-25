@@ -13,7 +13,19 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
 
-    // Do any additional setup after loading the view.
+    CGSize size = self.view.bounds.size;
+    CGFloat height = 30;
+    CGFloat y = (size.height - height) / 2;
+    NSRect rect = NSMakeRect(0, y, size.width, height);
+    NSText *text = [[NSText alloc] initWithFrame:rect];
+    text.string = @"选中需要预览的文件，按空格即可";
+    text.font = [NSFont systemFontOfSize:25];
+    text.alignment = NSTextAlignmentCenter;
+    text.editable = NO;
+    
+    [self.view addSubview:text];
+    self.view.wantsLayer = YES;
+    self.view.layer.backgroundColor = [NSColor whiteColor].CGColor;
 }
 
 

@@ -10,11 +10,18 @@
 
 static NSString * const kPluginBundleId = @"com.ealeksandrov.ProvisionQL";
 static NSString * const kDataType_ipa               = @"com.apple.itunes.ipa";
+static NSString * const kDataType_app               = @"com.apple.application-bundle";
+static NSString * const kDataType_app2              = @"com.apple.application-file";
+static NSString * const kDataType_framework               = @"com.apple.framework";
 static NSString * const kDataType_ios_provision     = @"com.apple.mobileprovision";
 static NSString * const kDataType_ios_provision_old = @"com.apple.iphone.mobileprovision";
 static NSString * const kDataType_osx_provision     = @"com.apple.provisionprofile";
 static NSString * const kDataType_xcode_archive     = @"com.apple.xcode.archive";
 static NSString * const kDataType_app_extension     = @"com.apple.application-and-system-extension";
+
+// 3rd party ipa-like file extensions
+static NSString * _Nonnull const kDataType_trollstore_ipa     = @"com.opa334.trollstore.tipa";
+static NSString * _Nonnull const kDataType_trollstore_ipa_dyn = @"dyn.ah62d4rv4ge81k4puqe";
 
 NSData *unzipFile(NSURL *url, NSString *filePath);
 BOOL unzipFileToDir(NSURL *url, NSString *filePath, NSString *targetDir);

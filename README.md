@@ -15,7 +15,9 @@ Thumbnails will show app icon for `.ipa`/ `.xcarchive` or expiring status and de
 
 Supported file types:
 
-* `.ipa` - iOS packaged application
+* `.ipa` or `.tipa` - iOS packaged application
+* `.app` - iOS/OSX application bundle
+* `.framework` - iOS/OSX framework
 * `.xcarchive` - Xcode archive
 * `.appex` - iOS/OSX application extension
 * `.mobileprovision` - iOS provisioning profile
@@ -34,21 +36,57 @@ Initially based on [Provisioning by Craig Hockenberry](https://github.com/chocke
 
 ## Installation
 
-### Homebrew Cask
+* Clone the project repo;
+* Open the `ProvisionQL.xcodeproj` file, select the `ProvisionQLApp` target and click Run.
 
-[Homebrew cask](https://caskroom.github.io) is the easiest way to install binary applications and Quick Look plugins.
+### 其他
 
-If you have [homebrew](http://brew.sh/) installed - just run one line and you are ready:
+ProvisionQL没有系统扩展的优先级高，可能不生效。
 
-```sh
-brew install --cask provisionql
+ProvisionQL生成的信息末尾有类似以下信息：
+
+```
+ProvisionQL v1.6.4 (99) (debug) (Fork on GitHub)
 ```
 
-### Manual
+1. 关闭ProvisioningProfileQuickLookExtension
 
-* download archive with latest version from the [Releases](https://github.com/ealeksandrov/ProvisionQL/releases/latest) page;
-* move `ProvisionQL.qlgenerator` to `~/Library/QuickLook/`(current user) or `/Library/QuickLook/`(all users);
-* run `qlmanage -r` to refresh Quick Look plugins list.
+   在`系统设置`中搜索`扩展`，将`快速查看`中的`ProvisioningProfileQuickLookExtension`复选框去掉勾选
+
+2. 删除DVTProvisioningProfileQuicklookGenerator对mobileprovision的支持
+
+   ```stylus
+   /Applications/Xcode.app/Contents/Library/QuickLook/DVTProvisioningProfileQuicklookGenerator.qlgenerator
+   ```
+
+查看当前解析器
+
+1. 查看文件和解析扩展的对应关系
+
+   ```stylus
+   qlmanage -m
+   server: living for 0s (0 requests handled) - instant off: yes - arch: X86_64 - user id: 501
+   memory used: 0 MB (849856 bytes) - used descriptors: 19/256
+   plugins:
+     ...
+     com.apple.iphone.mobileprovision -> /Users/xxx/Library/QuickLook/ProvisionQL.qlgenerator (99)
+     com.apple.application-and-system-extension -> /Users/xxx/Library/QuickLook/ProvisionQL.qlgenerator (99)
+     ...
+     com.apple.itunes.ipa -> /Users/xxx/Library/QuickLook/ProvisionQL.qlgenerator (99)
+     ...
+     com.apple.mobileprovision -> /Users/xxx/Library/QuickLook/ProvisionQL.qlgenerator (99)
+     ...
+   ```
+
+获取文件类型contentTypeUTI
+
+```stylus
+mdls -name kMDItemContentType /path/to/file
+```
+
+调试
+
+attach进程ExternalQuickLookSatellite-x86_64
 
 ## Author
 
