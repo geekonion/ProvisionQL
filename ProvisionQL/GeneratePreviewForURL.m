@@ -5,6 +5,15 @@
 OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview, CFURLRef url, CFStringRef contentTypeUTI, CFDictionaryRef options);
 void CancelPreviewGeneration(void *thisInterface, QLPreviewRequestRef preview);
 
+struct CS_Blob {
+    uint32_t magic;                 // magic number
+    uint32_t length;                // total length of blob
+};
+
+enum {
+    kSecCodeMagicEntitlement = 0xfade7171,        /* entitlements blob */
+    kSecCodeMagicEntitlementDER = 0xfade7172,   /* entitlements der https://pkg.go.dev/github.com/blacktop/go-macho/types/codesign */
+};
 /* -----------------------------------------------------------------------------
  Generate a preview for file
  
@@ -21,14 +30,11 @@ void displayKeyAndValue(NSUInteger level, NSString *key, id value, NSMutableStri
             [output appendFormat:@"%*s{\n", indent, ""];
         }
         NSDictionary *dictionary = (NSDictionary *)value;
-        NSArray *keys = [[dictionary allKeys] sortedArrayUsingSelector:@selector(compare:)];
-        for (NSString *subKey in keys) {
+        [dictionary enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull subKey, id  _Nonnull obj, BOOL * _Nonnull stop) {
             NSUInteger subLevel = (key == nil && level == 0) ? 0 : level + 1;
-            displayKeyAndValue(subLevel, subKey, [dictionary valueForKey:subKey], output);
-        }
-        if (level != 0) {
-            [output appendFormat:@"%*s}\n", indent, ""];
-        }
+            displayKeyAndValue(subLevel, subKey, obj, output);
+        }];
+        [output appendFormat:@"%*s}\n", indent, ""];
     } else if ([value isKindOfClass:[NSArray class]]) {
         [output appendFormat:@"%*s%@ = (\n", indent, "", key];
         NSArray *array = (NSArray *)value;
@@ -38,10 +44,19 @@ void displayKeyAndValue(NSUInteger level, NSString *key, id value, NSMutableStri
         [output appendFormat:@"%*s)\n", indent, ""];
     } else if ([value isKindOfClass:[NSData class]]) {
         NSData *data = (NSData *)value;
-        if (key) {
-            [output appendFormat:@"%*s%@ = %zd bytes of data\n", indent, "", key, [data length]];
+        const char *bytes = data.bytes;
+        struct CS_Blob *ent = (void *)bytes;
+        if (ent && _OSSwapInt32(ent->magic) == kSecCodeMagicEntitlement) {
+            uint32_t header_len = sizeof(struct CS_Blob);
+            uint32_t length = _OSSwapInt32(ent->length) - header_len;
+            NSString *ent = [[NSString alloc] initWithBytes:bytes + header_len length:length encoding:NSUTF8StringEncoding];
+            [output appendString:ent];
         } else {
-            [output appendFormat:@"%*s%zd bytes of data\n", indent, "", [data length]];
+            if (key) {
+                [output appendFormat:@"%*s%@ = %zd bytes of data\n", indent, "", key, [data length]];
+            } else {
+                [output appendFormat:@"%*s%zd bytes of data\n", indent, "", [data length]];
+            }
         }
     } else {
         if (key) {
@@ -243,7 +258,7 @@ NSString *escapedXML(NSString *stringToEscape) {
     return stringToEscape;
 }
 
-NSData *codesignEntitlementsDataFromApp(NSString *basePath, NSString *bundleExecutable) {
+NSDictionary *codesignInfoFromApp(NSString *basePath, NSString *bundleExecutable) {
     NSString *binaryPath = [basePath stringByAppendingPathComponent:bundleExecutable];
     NSURL *binaryURL = [NSURL fileURLWithPath:binaryPath];
     
@@ -254,39 +269,18 @@ NSData *codesignEntitlementsDataFromApp(NSString *basePath, NSString *bundleExec
         NSLog(@"Failed to create static code for binary: %@", binaryPath);
         return nil;
     }
-
-    // Retrieve the signing information, which includes entitlements
+    
+    // Retrieve the signing information
     CFDictionaryRef signingInfo = NULL;
     status = SecCodeCopySigningInformation(staticCode, kSecCSSigningInformation, &signingInfo);
     CFRelease(staticCode); // Release static code reference now that we're done with it
-
+    
     if (status != errSecSuccess || !signingInfo) {
         NSLog(@"Failed to retrieve signing information for binary: %@", binaryPath);
         return nil;
     }
-
-    // Extract the entitlements from the signing information dictionary
-    CFDictionaryRef entitlements = CFDictionaryGetValue(signingInfo, kSecCodeInfoEntitlements);
-    if (!entitlements) {
-        NSLog(@"No entitlements found for binary: %@", binaryPath);
-        CFRelease(signingInfo);
-        return nil;
-    }
-
-    // Convert the entitlements dictionary to NSData (plist format)
-    NSError *plistError = nil;
-    NSData *entitlementsData = [NSPropertyListSerialization dataWithPropertyList:(__bridge NSDictionary *)entitlements
-                                                                          format:NSPropertyListXMLFormat_v1_0
-                                                                         options:0
-                                                                           error:&plistError];
-    CFRelease(signingInfo); // Release the signing info dictionary
-
-    if (plistError || !entitlementsData) {
-        NSLog(@"Failed to serialize entitlements to data: %@", plistError);
-        return nil;
-    }
-
-    return entitlementsData;
+    
+    return CFBridgingRelease(signingInfo);
 }
 
 NSString *iconAsBase64(NSImage *appIcon) {
@@ -305,11 +299,14 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
     NSString *path = [URL absoluteString];
     if ([path hasPrefix:@"file:///.file/id="]) {
         URL = [URL filePathURL];
-        path = [URL absoluteString];
-        unichar last = [path characterAtIndex:path.length - 1];
-        if (last == '/') {
-            path = [path substringToIndex:path.length - 1];
-        }
+        path = [URL path];
+    } else {
+        path = [URL path];
+    }
+    
+    unichar last = [path characterAtIndex:path.length - 1];
+    if (last == '/') {
+        path = [path substringToIndex:path.length - 1];
     }
     
     if ([dataType hasPrefix:@"dyn."]) {
@@ -327,7 +324,7 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
         NSURL *targetURL = nil;
         NSData *provisionData = nil;
         NSData *appPlist = nil;
-        NSData *codesignEntitlementsData = nil;
+        NSDictionary *codesignInfo = nil;
         NSImage *appIcon = nil;
         NSString *title = nil;
 
@@ -350,7 +347,7 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
 
             unzipFileToDir(URL, currentTempDirFolder, [@"Payload/*.app/" stringByAppendingPathComponent:bundleExecutable]);
 
-            codesignEntitlementsData = codesignEntitlementsDataFromApp(currentTempDirFolder, bundleExecutable);
+            codesignInfo = codesignInfoFromApp(currentTempDirFolder, bundleExecutable);
 
             [fileManager removeItemAtPath:tempDirFolder error:nil];
         } else if ([dataType isEqualToString:kDataType_app] || [dataType isEqualToString:kDataType_app2]) {
@@ -403,8 +400,12 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
                 NSDictionary *appPropertyList = [NSPropertyListSerialization propertyListWithData:appPlist options:0 format:NULL error:NULL];
                 NSString *bundleExecutable = [appPropertyList objectForKey:@"CFBundleExecutable"];
                 
-                // read codesigning entitlements from application binary
-                codesignEntitlementsData = codesignEntitlementsDataFromApp(targetURL.path, bundleExecutable);
+                NSString *dir = targetURL.path;
+                if (isMacApp && ([dataType isEqualToString:kDataType_app] || [dataType isEqualToString:kDataType_app2] || [dataType isEqualToString:kDataType_xcode_archive] || [dataType isEqualToString:kDataType_app_extension])) {
+                    dir = [dir stringByAppendingPathComponent:@"Contents/MacOS"];
+                }
+                // read codesigning info from application binary
+                codesignInfo = codesignInfoFromApp(dir, bundleExecutable);
             }
         }
 
@@ -423,7 +424,7 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
         if (!provisionData) {
             NSLog(@"No provisionData for %@", URL);
 
-            if (appPlist != nil) {
+            if (appPlist != nil || codesignInfo != nil) {
                 [synthesizedInfo setObject:@"hiddenDiv" forKey:@"ProvisionInfo"];
             } else {
                 return nil;
@@ -531,17 +532,19 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
         }
 
         // MARK: Provisioning
+        NSData *data = nil;
+        if (provisionData) {
+            CMSDecoderRef decoder = NULL;
+            CMSDecoderCreate(&decoder);
+            CMSDecoderUpdateMessage(decoder, provisionData.bytes, provisionData.length);
+            CMSDecoderFinalizeMessage(decoder);
+            CFDataRef dataRef = NULL;
+            CMSDecoderCopyContent(decoder, &dataRef);
+            data = (NSData *)CFBridgingRelease(dataRef);
+            CFRelease(decoder);
+        }
 
-        CMSDecoderRef decoder = NULL;
-        CMSDecoderCreate(&decoder);
-        CMSDecoderUpdateMessage(decoder, provisionData.bytes, provisionData.length);
-        CMSDecoderFinalizeMessage(decoder);
-        CFDataRef dataRef = NULL;
-        CMSDecoderCopyContent(decoder, &dataRef);
-        NSData *data = (NSData *)CFBridgingRelease(dataRef);
-        CFRelease(decoder);
-
-        if ((!data && !appPlist)) {
+        if ((!data && !appPlist && !codesignInfo)) {
             return nil;
         }
 
@@ -604,46 +607,17 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
                 [synthesizedInfo setObject:synthesizedValue forKey:@"TeamIds"];
             }
 
-            BOOL showEntitlementsWarning = false;
-            if (codesignEntitlementsData != nil) {
-                // read the entitlements directly from the codesign output
-                NSDictionary *entitlementsPropertyList = [NSPropertyListSerialization propertyListWithData:codesignEntitlementsData options:0 format:NULL error:NULL];
-                if (entitlementsPropertyList != nil) {
-                    NSMutableString *dictionaryFormatted = [NSMutableString string];
-                    displayKeyAndValue(0, nil, entitlementsPropertyList, dictionaryFormatted);
-                    synthesizedValue = [NSString stringWithFormat:@"<pre>%@</pre>", dictionaryFormatted];
-                } else {
-                    NSString *outputString = [[NSString alloc] initWithData:codesignEntitlementsData encoding:NSUTF8StringEncoding];
-                    NSString *errorOutput;
-                    if ([outputString hasPrefix:@"Executable="]) {
-                        // remove first line with long temporary path to the executable
-                        NSArray *allLines = [outputString componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
-                        errorOutput = [[allLines subarrayWithRange:NSMakeRange(1, allLines.count - 1)] componentsJoinedByString:@"<br />"];
-                    } else {
-                        errorOutput = outputString;
-                    }
-                    showEntitlementsWarning = true;
-                    synthesizedValue = errorOutput;
-                }
+            // read the entitlements from the provisioning profile instead
+            value = [propertyList objectForKey:@"Entitlements"];
+            if ([value isKindOfClass:[NSDictionary class]]) {
+                NSDictionary *dictionary = (NSDictionary *)value;
+                NSMutableString *dictionaryFormatted = [NSMutableString string];
+                displayKeyAndValue(0, nil, dictionary, dictionaryFormatted);
+                synthesizedValue = [NSString stringWithFormat:@"<pre>%@</pre>", dictionaryFormatted];
+                
                 [synthesizedInfo setObject:synthesizedValue forKey:@"EntitlementsFormatted"];
             } else {
-                // read the entitlements from the provisioning profile instead
-                value = [propertyList objectForKey:@"Entitlements"];
-                if ([value isKindOfClass:[NSDictionary class]]) {
-                    NSDictionary *dictionary = (NSDictionary *)value;
-                    NSMutableString *dictionaryFormatted = [NSMutableString string];
-                    displayKeyAndValue(0, nil, dictionary, dictionaryFormatted);
-                    synthesizedValue = [NSString stringWithFormat:@"<pre>%@</pre>", dictionaryFormatted];
-
-                    [synthesizedInfo setObject:synthesizedValue forKey:@"EntitlementsFormatted"];
-                } else {
-                    [synthesizedInfo setObject:@"No Entitlements" forKey:@"EntitlementsFormatted"];
-                }
-            }
-            if (showEntitlementsWarning) {
-                [synthesizedInfo setObject:@"" forKey:@"EntitlementsWarning"];
-            } else {
-                [synthesizedInfo setObject:@"hiddenDiv" forKey:@"EntitlementsWarning"];
+                [synthesizedInfo setObject:@"No Entitlements" forKey:@"EntitlementsFormatted"];
             }
 
             value = [propertyList objectForKey:@"DeveloperCertificates"];
@@ -725,6 +699,15 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
                     }
                 }
             }
+        }
+        
+        // 没有provision时，显示二进制文件中获取到的entitlements
+        if (codesignInfo.count) {
+            synthesizedValue = [NSString stringWithFormat:@"<pre>%@</pre>", codesignInfo];
+            
+            [synthesizedInfo setObject:synthesizedValue forKey:@"SignInfoFormatted"];
+        } else {
+            [synthesizedInfo setObject:@"No signing info" forKey:@"SignInfoFormatted"];
         }
 
         // MARK: File Info

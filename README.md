@@ -11,7 +11,13 @@ Inspired by a number of existing alternatives, the goal of this project is to pr
 
 Thumbnails will show app icon for `.ipa`/ `.xcarchive` or expiring status and device count for `.mobileprovision`. Quick Look preview will give a lot of information, including devices UUIDs, certificates, entitlements and much more.
 
-![Valid AdHoc provision](https://raw.github.com/ealeksandrov/ProvisionQL/master/Screenshots/2.png)
+### Mobileprovision
+
+![Valid AdHoc provision](Screenshots/2.png)
+
+### MacOS App
+
+![MacOS App](Screenshots/Xcode.png)
 
 Supported file types:
 
@@ -38,6 +44,8 @@ Initially based on [Provisioning by Craig Hockenberry](https://github.com/chocke
 
 * Clone the project repo;
 * Open the `ProvisionQL.xcodeproj` file, select the `ProvisionQLApp` target and click Run.
+* Authorize `ProvisionQLPreview` and `ProvisionQLThumbnail` based on system prompts.
+* Move or copy `ProvisionQLApp.app` to `/Applications`
 
 ### 其他
 

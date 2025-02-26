@@ -31,3 +31,7 @@
 ### App Store ipa
 
 ![App from App Store](https://raw.github.com/ealeksandrov/ProvisionQL/master/Screenshots/7.png)
+
+### MacOS App
+
+![App from App Store](./Screenshots/Xcode.jpg)
