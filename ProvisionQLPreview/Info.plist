@@ -20,6 +20,7 @@
 				<string>com.opa334.trollstore.tipa</string>
 				<string>dyn.ah62d4rv4ge81k4puqe</string>
 				<string>com.apple.framework</string>
+				<string>com.apple.mach-o-dylib</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>

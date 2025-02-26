@@ -24,6 +24,7 @@ Supported file types:
 * `.ipa` or `.tipa` - iOS packaged application
 * `.app` - iOS/OSX application bundle
 * `.framework` - iOS/OSX framework
+* `.dylib` - iOS/OSX dynamic library
 * `.xcarchive` - Xcode archive
 * `.appex` - iOS/OSX application extension
 * `.mobileprovision` - iOS provisioning profile

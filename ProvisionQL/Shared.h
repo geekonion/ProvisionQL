@@ -13,6 +13,7 @@ static NSString * const kDataType_ipa               = @"com.apple.itunes.ipa";
 static NSString * const kDataType_app               = @"com.apple.application-bundle";
 static NSString * const kDataType_app2              = @"com.apple.application-file";
 static NSString * const kDataType_framework         = @"com.apple.framework";
+static NSString * const kDataType_dylib             = @"com.apple.mach-o-dylib";
 static NSString * const kDataType_ios_provision     = @"com.apple.mobileprovision";
 static NSString * const kDataType_ios_provision_old = @"com.apple.iphone.mobileprovision";
 static NSString * const kDataType_osx_provision     = @"com.apple.provisionprofile";

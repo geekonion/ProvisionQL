@@ -369,6 +369,11 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
         } else if ([dataType isEqualToString:kDataType_framework]) {
             title = @"Framework info";
             targetURL = URL;
+        } else if ([dataType isEqualToString:kDataType_dylib]) {
+            title = @"Dylib info";
+            NSString *dir = path.stringByDeletingLastPathComponent;
+            NSString *name = path.lastPathComponent;
+            codesignInfo = codesignInfoFromApp(dir, name);
         } else {
             title = @"Provision info";
             // use provisioning directly
