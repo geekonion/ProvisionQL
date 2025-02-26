@@ -19,7 +19,11 @@ Thumbnails will show app icon for `.ipa`/ `.xcarchive` or expiring status and de
 
 ![MacOS App](Screenshots/Xcode.png)
 
-Supported file types:
+[More screenshots](Screenshots/README.md)
+
+
+
+### Supported file types:
 
 * `.ipa` or `.tipa` - iOS packaged application
 * `.app` - iOS/OSX application bundle
@@ -29,8 +33,6 @@ Supported file types:
 * `.appex` - iOS/OSX application extension
 * `.mobileprovision` - iOS provisioning profile
 * `.provisionprofile` - OSX provisioning profile
-
-[More screenshots](https://github.com/ealeksandrov/ProvisionQL/blob/master/Screenshots/README.md)
 
 ### Acknowledgments
 
@@ -47,6 +49,8 @@ Initially based on [Provisioning by Craig Hockenberry](https://github.com/chocke
 * Open the `ProvisionQL.xcodeproj` file, select the `ProvisionQLApp` target and click Run.
 * Authorize `ProvisionQLPreview` and `ProvisionQLThumbnail` based on system prompts.
 * Move or copy `ProvisionQLApp.app` to `/Applications`
+
+
 
 ### 其他
 
