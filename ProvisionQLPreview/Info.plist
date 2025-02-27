@@ -21,6 +21,14 @@
 				<string>dyn.ah62d4rv4ge81k4puqe</string>
 				<string>com.apple.framework</string>
 				<string>com.apple.mach-o-dylib</string>
+				<string>com.apple.metadata-importer</string>
+				<string>public.folder</string>
+				<string>com.apple.xpc-service</string>
+				<string>com.apple.coresimulator.simdevicetype</string>
+				<string>com.apple.dt.ide.plug-in</string>
+				<string>com.apple.dt.dvt.plug-in</string>
+				<string>com.apple.plugin</string>
+				<string>com.apple.generic-bundle</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>

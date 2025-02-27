@@ -316,6 +316,22 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
             dataType = kDataType_xcode_archive;
         } else if ([path hasSuffix:@".framework"]) {
             dataType = kDataType_framework;
+        } else if ([path hasSuffix:@".mdimporter"]) {
+            dataType = kDataType_metadata_importer;
+        } else if ([path hasSuffix:@".xcpext"] || [path hasSuffix:@".xrcliplugin"] || [path hasSuffix:@".xrplugin"] || [path hasSuffix:@".xruiplugin"] || [path hasSuffix:@".rcplugin"] || [path hasSuffix:@".ibplugin"]) {
+            dataType = kDataType_public_folder;
+        } else if ([path hasSuffix:@".simdevicetype"]) {
+            dataType = kDataType_sim_device;
+        } else if ([path hasSuffix:@".xpc"]) {
+            dataType = kDataType_xpc_service;
+        } else if ([path hasSuffix:@".plugin"]) {
+            dataType = kDataType_plugin;
+        } else if ([path hasSuffix:@".ideplugin"]) {
+            dataType = kDataType_ide_plugin;
+        } else if ([path hasSuffix:@".dvtplugin"]) {
+            dataType = kDataType_dvt_plugin;
+        } else if ([path hasSuffix:@".bundle"]) {
+            dataType = kDataType_generic_bundle;
         }
     }
     
@@ -327,6 +343,7 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
         NSDictionary *codesignInfo = nil;
         NSImage *appIcon = nil;
         NSString *title = nil;
+        BOOL tryMacOS = NO;
 
         if ([dataType isEqualToString:kDataType_ipa]
             // for now, treat .tipa as if it were a normal .ipa file.
@@ -353,6 +370,7 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
         } else if ([dataType isEqualToString:kDataType_app] || [dataType isEqualToString:kDataType_app2]) {
             title = @"App info";
             targetURL = URL;
+            tryMacOS = YES;
         } else if ([dataType isEqualToString:kDataType_xcode_archive]) {
             title = @"Archive info";
             // get the embedded plist for the iOS app
@@ -363,12 +381,47 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
                     targetURL = [appsDir URLByAppendingPathComponent:dirFiles[0] isDirectory:YES];
                 }
             }
+            tryMacOS = YES;
         } else if ([dataType isEqualToString:kDataType_app_extension]) {
             title = @"App extension info";
             targetURL = URL;
+            tryMacOS = YES;
+        } else if ([dataType isEqualToString:kDataType_metadata_importer]) {
+            title = @"Metadata importer info";
+            targetURL = URL;
+            tryMacOS = YES;
+        } else if ([dataType isEqualToString:kDataType_public_folder]) {
+            title = @"pubilc folder info";
+            targetURL = URL;
+            tryMacOS = YES;
+        } else if ([dataType isEqualToString:kDataType_sim_device]) {
+            title = @"simulator device info";
+            targetURL = URL;
+            tryMacOS = YES;
+        } else if ([dataType isEqualToString:kDataType_xpc_service]) {
+            title = @"xpc service info";
+            targetURL = URL;
+            tryMacOS = YES;
+        } else if ([dataType isEqualToString:kDataType_plugin]) {
+            title = @"plug-in info";
+            targetURL = URL;
+            tryMacOS = YES;
+        } else if ([dataType isEqualToString:kDataType_ide_plugin]) {
+            title = @"ide plug-in info";
+            targetURL = URL;
+            tryMacOS = YES;
+        } else if ([dataType isEqualToString:kDataType_dvt_plugin]) {
+            title = @"dvt plug-in info";
+            targetURL = URL;
+            tryMacOS = YES;
+        } else if ([dataType isEqualToString:kDataType_generic_bundle]) {
+            title = @"generic bundle info";
+            targetURL = URL;
+            tryMacOS = YES;
         } else if ([dataType isEqualToString:kDataType_framework]) {
             title = @"Framework info";
             targetURL = URL;
+            tryMacOS = YES;
         } else if ([dataType isEqualToString:kDataType_dylib]) {
             title = @"Dylib info";
             NSString *dir = path.stringByDeletingLastPathComponent;
@@ -404,9 +457,12 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
             if (appPlist) {
                 NSDictionary *appPropertyList = [NSPropertyListSerialization propertyListWithData:appPlist options:0 format:NULL error:NULL];
                 NSString *bundleExecutable = [appPropertyList objectForKey:@"CFBundleExecutable"];
+                if (!bundleExecutable && [dataType isEqualToString:kDataType_public_folder]) {
+                    bundleExecutable = [appPropertyList objectForKey:@"CFBundleName"];
+                }
                 
                 NSString *dir = targetURL.path;
-                if (isMacApp && ([dataType isEqualToString:kDataType_app] || [dataType isEqualToString:kDataType_app2] || [dataType isEqualToString:kDataType_xcode_archive] || [dataType isEqualToString:kDataType_app_extension])) {
+                if (isMacApp && tryMacOS) {
                     dir = [dir stringByAppendingPathComponent:@"Contents/MacOS"];
                 }
                 // read codesigning info from application binary
@@ -473,7 +529,7 @@ NSData* generatePreviewDataForURL(NSURL *URL, NSString *dataType) {
             NSString *sdkName = [appPropertyList objectForKey:@"DTSDKName"] ?: @"";
             [synthesizedInfo setObject:sdkName forKey:@"DTSDKName"];
 
-            NSString *minimumOSVersion = [appPropertyList objectForKey:@"MinimumOSVersion"] ?: @"";
+            NSString *minimumOSVersion = appPropertyList[@"MinimumOSVersion"] ?: appPropertyList[@"LSMinimumSystemVersion"] ?: @"";
             [synthesizedInfo setObject:minimumOSVersion forKey:@"MinimumOSVersion"];
 
             NSDictionary *appTransportSecurity = [appPropertyList objectForKey:@"NSAppTransportSecurity"];
